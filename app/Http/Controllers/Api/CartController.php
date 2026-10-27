@@ -192,4 +192,44 @@ class CartController extends Controller
 
         return $this->index($request);
     }
+
+    public function sync(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => ['nullable', 'array'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $user = $request->user('sanctum') ?? $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Guest cart synchronized.',
+                'data' => [
+                    'items' => $validated['items'] ?? [],
+                ],
+            ]);
+        }
+
+        $cart = Cart::firstOrCreate(['user_id' => $user->id]);
+
+        $cart->items()->delete();
+
+        foreach ($validated['items'] ?? [] as $item) {
+            $product = Product::find($item['product_id']);
+            if (!$product || !$product->is_active || $product->stock <= 0) {
+                continue;
+            }
+
+            CartItem::create([
+                'cart_id' => $cart->id,
+                'product_id' => $product->id,
+                'quantity' => min($item['quantity'], $product->stock),
+            ]);
+        }
+
+        return $this->index($request);
+    }
 }

@@ -66,6 +66,7 @@ Route::get('categories/{slug}', [CategoryController::class, 'show']);
 
 Route::post('contact', [ContactController::class, 'store']);
 Route::post('upload', [AdminProductController::class, 'upload']);
+Route::post('cart/sync', [CartController::class, 'sync']);
 
 // Public Settings & Announcements
 Route::get('settings/announcement', function () {
