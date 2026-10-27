@@ -98,14 +98,46 @@ class ProductController extends Controller
 
     public function show(string $slug): JsonResponse
     {
+        $slugAliases = [
+            'sandalwood-incense-cones-60pcs' => 'foxal-sandalwood-natural-incense-cones',
+            'rose-incense-cones-60pcs' => 'foxal-rose-natural-incense-cones',
+            'lavender-incense-cones-60pcs' => 'foxal-lavender-natural-incense-cones',
+            'jasmine-incense-cones-60pcs' => 'foxal-jasmine-natural-incense-cones',
+            'sukhad-chandan-luxury-incense-sticks' => 'foxal-sukhad-premium-incense-sticks',
+            'royal-oudh-divine-incense-sticks' => 'foxal-oudh-premium-incense-sticks',
+            'ancient-woods-temple-incense-sticks' => 'foxal-woods-premium-incense-sticks',
+            'vrindavan-kasturi-incense-sticks' => 'foxal-kasturi-premium-incense-sticks',
+            'madurai-mogra-pure-incense-sticks' => 'foxal-mogra-premium-incense-sticks',
+            'sambrani-dhoop-purifying-incense-sticks' => 'foxal-gugal-premium-incense-sticks',
+        ];
+
+        $targetSlug = $slugAliases[$slug] ?? $slug;
+
         $product = Product::with([
             'category',
             'variants' => fn($q) => $q->where('is_active', true),
             'approvedReviews.user:id,name',
         ])
-            ->where('slug', $slug)
             ->where('is_active', true)
-            ->firstOrFail();
+            ->where(function ($q) use ($slug, $targetSlug) {
+                $q->where('slug', $slug)
+                  ->orWhere('slug', $targetSlug)
+                  ->orWhere('slug', 'foxal-' . $slug);
+            })
+            ->first();
+
+        if (!$product) {
+            // Flexible keyword match fallback
+            $keyword = str_replace(['-60pcs', '-incense-cones', '-premium', '-natural', 'foxal-'], '', $slug);
+            $product = Product::with([
+                'category',
+                'variants' => fn($q) => $q->where('is_active', true),
+                'approvedReviews.user:id,name',
+            ])
+                ->where('is_active', true)
+                ->where('slug', 'like', '%' . $keyword . '%')
+                ->firstOrFail();
+        }
 
         return response()->json([
             'success' => true,
